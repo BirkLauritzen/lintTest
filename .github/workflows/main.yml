@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          cache: 'gradle'
+
+      - name: Check Node.js Version
+        run: node -v
+
+      - name: Install Ktlint
+        run: curl -sSLO https://github.com/pinterest/ktlint/releases/download/0.45.2/ktlint && chmod a+x ktlint
+
+      - name: Run Ktlint to Fix Issues
+        run: ./ktlint -F "**/*.kt"
+
+      - name: Run Ktlint to Check for Issues
+        run: ./ktlint "**/*.kt" --reporter=plain --reporter=checkstyle,output=ktlint-report.xml
+
+      - name: Upload Ktlint Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: ktlint-report
+          path: ktlint-report.xml
+
+      - name: Commit changes
+        if: success() && steps.kitlint.outputs.files_changed == 'true'
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m "Fix linting issues"
+          git push
